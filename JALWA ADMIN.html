@@ -1,0 +1,1351 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Pro Controller</title>
+    
+    <!-- Icons & Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Firebase Compat SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #080b12;       
+            --sidebar-bg: #10141d;
+            --card-bg: #161b28;
+            --primary: #d4af37; /* Gold */
+            --accent-blue: #3b82f6;
+            --text-white: #fff;
+            --text-gray: #8b9bb4;
+            --danger: #ef4444;
+            --success: #22c55e;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        
+        body { background-color: var(--bg-dark); color: var(--text-white); display: flex; height: 100vh; overflow: hidden; }
+
+        /* --- LOGIN OVERLAY --- */
+        #admin-login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 9999; display: flex; justify-content: center; align-items: center;
+            background-image: radial-gradient(circle, #1a202e 0%, #000 100%);
+        }
+        .login-box {
+            background: var(--card-bg); padding: 40px; border-radius: 15px; border: 1px solid var(--primary);
+            text-align: center; width: 350px; box-shadow: 0 0 30px rgba(212, 175, 55, 0.2);
+        }
+        .login-inp {
+            width: 100%; padding: 12px; margin-top: 15px; background: #0b0f19; border: 1px solid #333;
+            color: #fff; border-radius: 5px; outline: none;
+        }
+        .login-btn {
+            width: 100%; padding: 12px; margin-top: 20px; background: var(--primary); border: none;
+            color: #000; font-weight: bold; border-radius: 5px; cursor: pointer;
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 260px; background: var(--sidebar-bg); height: 100%;
+            display: flex; flex-direction: column; position: fixed; top: 0; left: 0;
+            border-right: 1px solid #222; transition: 0.3s; z-index: 1000;
+        }
+        .brand { padding: 25px; font-size: 22px; font-weight: 800; color: var(--primary); border-bottom: 1px solid #222; display: flex; align-items: center; gap: 10px; letter-spacing: 1px; }
+        .menu { padding: 10px 0; overflow-y: auto; flex: 1; }
+        .menu-item {
+            padding: 14px 25px; color: var(--text-gray); cursor: pointer;
+            display: flex; align-items: center; gap: 12px; font-size: 14px;
+            border-left: 3px solid transparent; transition: 0.2s;
+        }
+        .menu-item:hover, .menu-item.active { background: #1a202e; color: #fff; border-left-color: var(--primary); }
+        .submenu { display: none; background: #0b0f19; padding-left: 10px; }
+        .submenu.show { display: block; }
+        .sub-item { padding: 10px 20px 10px 50px; font-size: 13px; color: #666; cursor: pointer; transition: 0.2s; }
+        .sub-item:hover { color: var(--primary); }
+
+        /* --- MAIN CONTENT --- */
+        .main-content {
+            flex: 1; margin-left: 260px; width: calc(100% - 260px);
+            display: flex; flex-direction: column; height: 100%; transition: 0.3s;
+        }
+        header { background: var(--sidebar-bg); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222; }
+        .toggle-btn { font-size: 22px; cursor: pointer; display: none; }
+
+        .page-container { padding: 25px; overflow-y: auto; flex: 1; }
+        .section { display: none; animation: fadeIn 0.3s; }
+        .section.active { display: block; }
+        @keyframes fadeIn { from{opacity:0; transform:translateY(5px);} to{opacity:1; transform:translateY(0);} }
+
+        /* --- CARDS & STATS --- */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+        .stat-card { background: var(--card-bg); padding: 25px; border-radius: 15px; display: flex; align-items: center; gap: 20px; border: 1px solid #2a2f3d; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .icon-box { width: 60px; height: 60px; border-radius: 12px; display: flex; justify-content: center; align-items: center; font-size: 28px; }
+        .ib-blue { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+        .ib-green { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+        .ib-red { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+        .st-val { font-size: 28px; font-weight: 700; display: block; color: #fff; margin-bottom: 5px; }
+
+        /* --- TABLES --- */
+        .table-card { background: var(--card-bg); border-radius: 15px; overflow: hidden; border: 1px solid #2a2f3d; margin-top: 25px; }
+        .table-header { padding: 20px; background: #1a202e; font-weight: 600; font-size: 16px; color: var(--primary); display: flex; justify-content: space-between; align-items: center; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; color: #ccc; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #2a2f3d; }
+        th { color: #fff; background: #111; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 1px; }
+        tr:hover { background: rgba(255,255,255,0.02); }
+        
+        .badge { padding: 4px 10px; border-radius: 50px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+        .bg-pending { background: rgba(255, 193, 7, 0.15); color: #ffc107; border: 1px solid rgba(255, 193, 7, 0.3); }
+        .bg-success { background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
+        .bg-reject { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .bg-banned { background: #ef4444; color: #fff; }
+
+        /* --- BUTTONS & FORMS --- */
+        .btn-action-green { padding: 6px 15px; border: none; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; background: #22c55e; color: #000; box-shadow: 0 2px 5px rgba(34, 197, 94, 0.3); }
+        .btn-action-red { padding: 6px 15px; border: none; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; background: #ef4444; color: #fff; margin-left: 5px; }
+        .btn-edit-user { padding: 6px 15px; border: none; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; background: #3b82f6; color: #fff; }
+        .btn-primary { background: var(--primary); color: #000; padding: 12px 25px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.2s; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(212, 175, 55, 0.3); }
+        .form-control { width: 100%; padding: 12px; background: #0b0f19; border: 1px solid #333; color: #fff; border-radius: 8px; outline: none; font-size: 14px; margin-bottom: 15px; transition: 0.2s; }
+        .form-control:focus { border-color: var(--primary); }
+
+        /* --- NEW GAME CONTROLLER DESIGN (UPDATED PREMIUM) --- */
+        .gc-container { display: flex; flex-direction: column; gap: 20px; }
+        
+        .gc-premium-header { 
+            background: linear-gradient(180deg, #161b28 0%, #0d1117 100%);
+            border-radius: 20px; 
+            border: 1px solid var(--primary); 
+            padding: 30px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            box-shadow: 0 0 40px rgba(212, 175, 55, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .gc-logo-circle {
+            width: 70px; height: 70px;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+            background: #080b12;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+            margin-bottom: 15px;
+            z-index: 2;
+        }
+        .gc-logo-circle i { font-size: 30px; color: var(--primary); }
+
+        .gc-big-time {
+            font-size: 48px;
+            font-weight: 900;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            margin-bottom: 25px;
+            z-index: 2;
+            line-height: 1;
+        }
+
+        .mode-switch-container {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            z-index: 2;
+        }
+        .mode-switch { 
+            background: #000; padding: 5px; border-radius: 30px; display: flex; border: 1px solid #333; 
+            position: relative; width: 260px; height: 50px;
+        }
+        .mode-btn { 
+            flex: 1; border: none; background: transparent; color: #666; font-weight: bold; 
+            cursor: pointer; z-index: 2; border-radius: 25px; transition: 0.3s;
+            display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px;
+        }
+        .mode-btn.active { color: #fff; }
+        .mode-highlight {
+            position: absolute; top: 5px; left: 5px; width: 50%; height: 38px;
+            background: var(--primary); border-radius: 25px; transition: 0.3s; z-index: 1;
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+        }
+        
+        .gc-status-bar { display: flex; gap: 20px; }
+        .gc-stat-box {
+            flex: 1; background: #111; border: 1px solid #333; padding: 15px; border-radius: 10px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .gc-stat-label { font-size: 12px; color: #888; text-transform: uppercase; }
+        .gc-stat-val { font-size: 20px; font-weight: 800; color: #fff; font-family: monospace; }
+        .gc-timer { color: var(--success); }
+
+        .manual-control-area {
+            background: #161b28; border-radius: 15px; padding: 25px; border: 1px solid #333;
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+        .manual-control-area.active { display: block; }
+
+        .num-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 25px; }
+        .num-btn {
+            aspect-ratio: 1; border-radius: 10px; border: 1px solid #333; background: #0b0f19;
+            color: #fff; font-size: 24px; font-weight: bold; cursor: pointer; transition: 0.2s;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.5);
+        }
+        .num-btn:hover { transform: translateY(-2px); border-color: #666; }
+        .num-btn:active { transform: translateY(2px); box-shadow: none; }
+        .num-btn.selected { background: var(--primary); color: #000; border-color: var(--primary); box-shadow: 0 0 15px rgba(212, 175, 55, 0.4); }
+
+        .gc-tabs { display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .gc-tab { 
+            padding: 8px 20px; background: transparent; border: none; color: #666; 
+            font-weight: bold; cursor: pointer; border-radius: 5px; 
+        }
+        .gc-tab.active { background: #333; color: #fff; }
+
+        .pagination-controls {
+            display: flex; justify-content: center; align-items: center; padding: 10px; background: #111; border-top: 1px solid #333; gap: 15px;
+        }
+        .pg-btn {
+            background: #2a2f3d; color: #fff; border: 1px solid #333; padding: 5px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px;
+        }
+        .pg-btn:hover { background: var(--primary); color:#000; }
+        .pg-btn:disabled { background: #111; color: #444; cursor: not-allowed; border-color:#222; }
+
+        /* --- MODALS --- */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; display: none; justify-content: center; align-items: center; backdrop-filter: blur(8px); }
+        .modal-overlay.active { display: flex; }
+        .modal-box { background: #161b28; width: 90%; max-width: 450px; border-radius: 15px; border: 1px solid #333; overflow: hidden; animation: popIn 0.3s; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        @keyframes popIn { from{transform:scale(0.8); opacity:0;} to{transform:scale(1); opacity:1;} }
+        .modal-header { background: linear-gradient(90deg, #d4af37, #f59e0b); padding: 15px 20px; color: #000; font-weight: bold; display: flex; justify-content: space-between; align-items: center; font-size: 16px; }
+        .modal-body { padding: 25px; }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 14px; border-bottom: 1px solid #2a2f3d; padding-bottom: 10px; color: #aaa; }
+        .info-row span:last-child { color: #fff; font-weight: 500; }
+        .form-input-modal { width: 100%; padding: 12px; background: #0b0f19; border: 1px solid #333; color: #d4af37; border-radius: 8px; outline: none; font-size: 14px; font-weight: bold; margin-bottom: 10px; }
+        .modal-footer { padding: 20px; display: flex; gap: 10px; border-top: 1px solid #2a2f3d; background: #111; }
+        .m-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; text-transform: uppercase; font-size: 12px; }
+        .m-btn-reject { background: #222; color: #ef4444; border: 1px solid #333; } 
+        .m-btn-approve { background: #22c55e; color: #000; }
+        .m-btn-ban { background: #ef4444; color: #fff; }
+
+        @media (max-width: 768px) {
+            .sidebar { left: -260px; }
+            .sidebar.active { left: 0; }
+            .main-content { margin-left: 0; width: 100%; }
+            .toggle-btn { display: block; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Admin Login -->
+    <div id="admin-login-overlay">
+        <div class="login-box">
+            <h2 style="color:var(--primary); margin-bottom:10px;">ADMIN LOGIN</h2>
+            <p style="color:#666; font-size:12px; margin-bottom:20px;">Secure Firebase Auth</p>
+            <input type="email" id="admin-email" class="login-inp" placeholder="Admin Email">
+            <input type="password" id="admin-pass" class="login-inp" placeholder="Password">
+            <button class="login-btn" onclick="checkAdmin()">ACCESS PANEL</button>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="brand"><i class="fa-solid fa-crown"></i> ADMIN PANEL</div>
+        <div class="menu">
+            <div class="menu-item active" onclick="showSection('dashboard', this)"><i class="fa-solid fa-house"></i> Dashboard</div>
+            <div class="menu-item" onclick="showSection('deposit', this)"><i class="fa-solid fa-wallet"></i> Deposit Requests</div>
+            <div class="menu-item" onclick="showSection('withdraw', this)"><i class="fa-solid fa-money-bill-transfer"></i> Withdraw Requests</div>
+            
+            <div class="menu-item" onclick="toggleWingo()"><i class="fa-solid fa-gamepad"></i> Game Controller <i class="fa-solid fa-chevron-down" style="margin-left:auto; font-size:10px;"></i></div>
+            <div class="submenu" id="wingo-submenu">
+                <div class="sub-item" onclick="openGameControl(30)">WinGo 30 Sec</div>
+                <div class="sub-item" onclick="openGameControl(60)">WinGo 1 Min</div>
+                <div class="sub-item" onclick="openGameControl(180)">WinGo 3 Min</div>
+                <div class="sub-item" onclick="openGameControl(300)">WinGo 5 Min</div>
+            </div>
+
+            <div class="menu-item" onclick="showSection('users', this)"><i class="fa-solid fa-users"></i> User Management</div>
+            <div class="menu-item" onclick="showSection('notifications', this)"><i class="fa-solid fa-bell"></i> Notifications Manager</div>
+            <div class="menu-item" onclick="showSection('referral', this)"><i class="fa-solid fa-share-nodes"></i> Referral Manager</div>
+            <div class="menu-item" onclick="showSection('app-update', this)"><i class="fa-solid fa-cloud-arrow-up"></i> App Version Control</div>
+            <div class="menu-item" onclick="showSection('slider', this)"><i class="fa-solid fa-image"></i> App Sliders</div>
+            
+            <!-- NEW SECTION FOR APP NAME UPDATE -->
+            <div class="menu-item" onclick="showSection('app-config', this)"><i class="fa-solid fa-pen-to-square"></i> App Name Config</div>
+            
+            <div class="menu-item" onclick="showSection('settings', this)"><i class="fa-solid fa-gear"></i> Settings & UPI</div>
+            <div class="menu-item" onclick="showSection('support-settings', this)"><i class="fa-solid fa-headset"></i> Support Settings</div>
+            <div class="menu-item" onclick="showSection('bonus', this)"><i class="fa-solid fa-gift"></i> Gift Codes</div>
+            <div class="menu-item" onclick="logoutAdmin()" style="color:var(--danger); margin-top:30px;"><i class="fa-solid fa-power-off"></i> Logout</div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <header>
+            <div style="display:flex; align-items:center; gap:15px;">
+                <i class="fa-solid fa-bars toggle-btn" onclick="toggleSidebar()"></i>
+                <h3 id="page-title" style="letter-spacing:1px; font-weight:600;">DASHBOARD</h3>
+            </div>
+            <div style="font-size:12px; color:#888; background:#111; padding:5px 10px; border-radius:20px; border:1px solid #333;">
+                <i class="fa-solid fa-circle" style="color:#22c55e; font-size:8px; margin-right:5px;"></i> System Online
+            </div>
+        </header>
+
+        <div class="page-container">
+            
+            <!-- DASHBOARD SECTION -->
+            <div id="dashboard" class="section active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="icon-box ib-blue"><i class="fa-solid fa-users"></i></div>
+                        <div><span class="st-val" id="d-users">0</span><span style="font-size:12px; color:#888;">Registered Users</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon-box ib-green"><i class="fa-solid fa-wallet"></i></div>
+                        <div><span class="st-val" id="d-dep">₹0</span><span style="font-size:12px; color:#888;">Total Deposits</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon-box ib-red"><i class="fa-solid fa-money-bill-wave"></i></div>
+                        <div><span class="st-val" id="d-with">₹0</span><span style="font-size:12px; color:#888;">Total Withdrawals</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NEW ADVANCED GAME CONTROLLER SECTION -->
+            <div id="game-controller-view" class="section">
+                <div class="gc-container">
+                    
+                    <div class="gc-premium-header">
+                        <div class="gc-logo-circle">
+                            <i class="fa-solid fa-user-secret"></i>
+                        </div>
+                        <div class="gc-big-time" id="gc-game-name">30s</div>
+                        
+                        <div class="mode-switch-container">
+                            <div class="mode-switch">
+                                <div class="mode-highlight" id="mode-hl"></div>
+                                <button class="mode-btn active" id="btn-auto" onclick="setGameMode('auto')">
+                                    <i class="fa-solid fa-robot"></i> Auto
+                                </button>
+                                <button class="mode-btn" id="btn-manual" onclick="setGameMode('manual')">
+                                    <i class="fa-solid fa-fingerprint"></i> Set Result
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="gc-status-bar">
+                        <div class="gc-stat-box">
+                            <span class="gc-stat-label">Current Period</span>
+                            <span class="gc-stat-val" id="live-period">Loading...</span>
+                        </div>
+                        <div class="gc-stat-box">
+                            <span class="gc-stat-label">Time Remaining</span>
+                            <span class="gc-stat-val gc-timer" id="live-timer">00:00</span>
+                        </div>
+                    </div>
+
+                    <div id="manual-area" class="manual-control-area">
+                        <h4 style="color:#fff; margin-bottom:15px; border-bottom:1px solid #333; padding-bottom:10px;">Select Next Result (0-9)</h4>
+                        
+                        <div class="num-grid">
+                            <button class="num-btn" onclick="selectNum(0)">0</button>
+                            <button class="num-btn" onclick="selectNum(1)">1</button>
+                            <button class="num-btn" onclick="selectNum(2)">2</button>
+                            <button class="num-btn" onclick="selectNum(3)">3</button>
+                            <button class="num-btn" onclick="selectNum(4)">4</button>
+                            <button class="num-btn" onclick="selectNum(5)">5</button>
+                            <button class="num-btn" onclick="selectNum(6)">6</button>
+                            <button class="num-btn" onclick="selectNum(7)">7</button>
+                            <button class="num-btn" onclick="selectNum(8)">8</button>
+                            <button class="num-btn" onclick="selectNum(9)">9</button>
+                        </div>
+
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div style="font-size:14px; color:#aaa;">Selected: <span id="sel-disp" style="color:var(--primary); font-weight:bold; font-size:18px;">None</span></div>
+                            <button class="btn-primary" style="width:auto;" onclick="submitManualResult()">SET THIS RESULT</button>
+                        </div>
+                    </div>
+
+                    <div class="table-card" style="margin-top:0;">
+                        <div class="gc-tabs" style="padding:15px 15px 0;">
+                            <button class="gc-tab active" onclick="switchGcTab('history')">Game History</button>
+                            <button class="gc-tab" onclick="switchGcTab('bets')">Live User Bets</button>
+                        </div>
+                        
+                        <div id="tab-history" style="display:block;">
+                            <table style="width:100%;">
+                                <thead><tr><th>Period</th><th>Number</th><th>Color</th><th>Size</th></tr></thead>
+                                <tbody id="gc-history-body"></tbody>
+                            </table>
+                            <div class="pagination-controls">
+                                <button class="pg-btn" onclick="changeHistoryPage(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+                                <span id="hist-page-count" style="color:#aaa; font-size:12px;">Page 1</span>
+                                <button class="pg-btn" onclick="changeHistoryPage(1)"><i class="fa-solid fa-chevron-right"></i></button>
+                            </div>
+                        </div>
+
+                        <div id="tab-bets" style="display:none;">
+                            <table style="width:100%;">
+                                <thead><tr><th>Period</th><th>User UID</th><th>Selection</th><th>Amount & Result</th><th>Status</th></tr></thead>
+                                <tbody id="gc-bets-body">
+                                    <tr><td colspan="5" style="text-align:center; padding:20px; color:#666;">Waiting for new bets...</td></tr>
+                                </tbody>
+                            </table>
+                            <div class="pagination-controls">
+                                <button class="pg-btn" onclick="changeBetsPage(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+                                <span id="bets-page-count" style="color:#aaa; font-size:12px;">Page 1</span>
+                                <button class="pg-btn" onclick="changeBetsPage(1)"><i class="fa-solid fa-chevron-right"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- DEPOSIT SECTION -->
+            <div id="deposit" class="section">
+                <div class="table-card">
+                    <div class="table-header">
+                        <span><i class="fa-solid fa-arrow-down" style="color:#22c55e;"></i> Pending Deposit Requests</span>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%;">
+                            <thead><tr><th>User ID</th><th>UTR No.</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
+                            <tbody id="dep-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WITHDRAW SECTION -->
+            <div id="withdraw" class="section">
+                <div class="table-card">
+                    <div class="table-header">
+                        <span><i class="fa-solid fa-arrow-up" style="color:#ef4444;"></i> Pending Withdrawal Requests</span>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%;">
+                            <thead><tr><th>User ID</th><th>Method</th><th>Details</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
+                            <tbody id="with-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- USERS SECTION -->
+            <div id="users" class="section">
+                <div class="table-card">
+                    <div class="table-header">
+                        <span>User Management</span>
+                        <input type="text" placeholder="Search UID..." style="background:#111; border:1px solid #333; color:#fff; padding:5px; border-radius:5px; font-size:12px;">
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%;">
+                            <thead><tr><th>UID</th><th>Contact</th><th>Password</th><th>Wallets (D / W / B)</th><th>Status</th><th>Action</th></tr></thead>
+                            <tbody id="users-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NOTIFICATIONS SECTION -->
+            <div id="notifications" class="section">
+                <div class="table-card" style="padding:25px; max-width:600px;">
+                    <h3 style="color:var(--primary); margin-bottom:20px;"><i class="fa-solid fa-bell"></i> Send Notifications</h3>
+                    
+                    <label style="font-size:12px; color:#aaa; display:block; margin-bottom:5px;">Target Audience</label>
+                    <select id="notif-target" class="form-control" onchange="toggleNotifUserField()">
+                        <option value="global">All Users (Global)</option>
+                        <option value="personal">Specific User (Personal)</option>
+                    </select>
+
+                    <div id="notif-user-box" style="display:none;">
+                        <label style="font-size:12px; color:#aaa; display:block; margin-bottom:5px;">User UID</label>
+                        <input type="text" id="notif-uid" class="form-control" placeholder="Enter User UID">
+                    </div>
+
+                    <label style="font-size:12px; color:#aaa; display:block; margin-bottom:5px;">Title</label>
+                    <input type="text" id="notif-title" class="form-control" placeholder="e.g. Bonus Added!">
+
+                    <label style="font-size:12px; color:#aaa; display:block; margin-bottom:5px;">Message</label>
+                    <textarea id="notif-msg" class="form-control" rows="4" placeholder="Type your message here..."></textarea>
+
+                    <button class="btn-primary" onclick="sendNotification()">SEND NOTIFICATION</button>
+                </div>
+            </div>
+
+            <!-- REFERRAL MANAGER SECTION -->
+            <div id="referral" class="section">
+                <div class="table-card" style="padding:25px; max-width:600px;">
+                    <h3 style="color:var(--primary); margin-bottom:20px;"><i class="fa-solid fa-share-nodes"></i> Referral & Bonus Manager</h3>
+                    
+                    <label style="font-size:12px; color:#aaa; display:block; margin-bottom:5px;">Sign Up Bonus (₹)</label>
+                    <input type="number" id="conf-signup-bonus" class="form-control" placeholder="e.g. 28">
+
+                    <label style="font-size:12px; color:#aaa; display:block; margin-bottom:5px;">Referral Bonus (₹)</label>
+                    <input type="number" id="conf-referral-bonus" class="form-control" placeholder="e.g. 20">
+
+                    <label style="font-size:12px; color:#aaa; display:block; margin-bottom:5px;">App Referral Link</label>
+                    <input type="text" id="conf-referral-link" class="form-control" placeholder="e.g. https://jalwagame.com">
+                    <p style="font-size:11px; color:#666; margin-bottom:15px;">Enter your website/app link here. User's UID will be auto-appended.</p>
+
+                    <button class="btn-primary" onclick="saveReferralSettings()">SAVE CONFIGURATION</button>
+                </div>
+            </div>
+
+            <!-- APP UPDATE MANAGER -->
+            <div id="app-update" class="section">
+                <div class="table-card" style="padding:25px; max-width:600px;">
+                    <h3 style="color:var(--primary); margin-bottom:20px;"><i class="fa-solid fa-cloud-arrow-up"></i> App Update Manager</h3>
+                    
+                    <label style="font-size:12px; color:#aaa; display:block; margin-bottom:5px;">Update Message</label>
+                    <textarea id="upd-msg" class="form-control" rows="3" placeholder="e.g. New Version 2.0 is available!"></textarea>
+
+                    <label style="font-size:12px; color:#aaa; display:block; margin-bottom:5px;">New App Link</label>
+                    <input type="text" id="upd-link" class="form-control" placeholder="e.g. https://drive.google.com/...">
+
+                    <label style="font-size:12px; color:#aaa; display:block; margin-bottom:5px;">Force Update Active?</label>
+                    <select id="upd-status" class="form-control" style="background:#000;">
+                        <option value="true">YES - Show Dialog</option>
+                        <option value="false">NO - Hide Dialog</option>
+                    </select>
+
+                    <button class="btn-primary" onclick="pushUpdate()">PUSH UPDATE NOTIFICATION</button>
+                </div>
+            </div>
+
+            <!-- NEW: APP NAME CONFIGURATION -->
+            <div id="app-config" class="section">
+                <div class="table-card" style="padding:25px; max-width:600px;">
+                    <h3 style="color:var(--primary); margin-bottom:20px;"><i class="fa-solid fa-pen-to-square"></i> App Name Configuration</h3>
+                    
+                    <label style="font-size:12px; color:#aaa; display:block; margin-bottom:5px;">Enter Game Name</label>
+                    <input type="text" id="config-app-name" class="form-control" placeholder="e.g. My Super Game">
+                    
+                    <button class="btn-primary" onclick="updateAppName()">UPDATE GAME NAME</button>
+                </div>
+            </div>
+
+            <!-- SETTINGS -->
+            <div id="settings" class="section">
+                <div class="table-card" style="padding:25px; max-width:600px;">
+                    <h3 style="color:var(--primary); margin-bottom:20px;">UPI Payment Settings</h3>
+                    <label style="font-size:12px; color:#aaa;">UPI ID</label>
+                    <input type="text" id="upi-id" class="form-control" placeholder="e.g. merchant@upi">
+                    
+                    <label style="font-size:12px; color:#aaa;">QR Code URL (Image Link)</label>
+                    <input type="text" id="qr-code" class="form-control" placeholder="https://...">
+                    
+                    <button class="btn-primary" onclick="updateSettings()">SAVE DETAILS</button>
+                </div>
+            </div>
+
+            <!-- NEW SUPPORT SETTINGS SECTION -->
+            <div id="support-settings" class="section">
+                <div class="table-card" style="padding:25px; max-width:600px;">
+                    <h3 style="color:var(--primary); margin-bottom:20px;"><i class="fa-solid fa-headset"></i> Customer Support Settings</h3>
+                    
+                    <label style="font-size:12px; color:#aaa; display:block; margin-bottom:5px;">Support Link (Telegram/WhatsApp)</label>
+                    <input type="text" id="support-link" class="form-control" placeholder="e.g. https://t.me/yourusername">
+                    <p style="font-size:11px; color:#666; margin-bottom:15px;">This link will open when users click on the Customer Support button in the app.</p>
+
+                    <button class="btn-primary" onclick="saveSupportSettings()">SAVE LINK</button>
+                </div>
+            </div>
+
+            <!-- SLIDER -->
+            <div id="slider" class="section">
+                <div class="table-card" style="padding:25px; max-width:600px; margin-bottom:20px;">
+                    <h3 style="color:var(--primary); margin-bottom:15px;">Add New Slide</h3>
+                    <label style="font-size:12px; color:#aaa;">Banner Image URL</label>
+                    <input type="text" id="slider-img" class="form-control" placeholder="Image URL">
+                    <label style="font-size:12px; color:#aaa;">Target Link</label>
+                    <input type="text" id="slider-link" class="form-control" placeholder="e.g. https://google.com">
+                    <button class="btn-primary" onclick="addSlider()">ADD SLIDER</button>
+                </div>
+                <div id="slider-list" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:15px;"></div>
+            </div>
+
+             <!-- BONUS -->
+             <div id="bonus" class="section">
+                <div class="table-card" style="padding:25px; max-width:600px; margin-bottom:20px;">
+                    <h3 style="color:var(--primary); margin-bottom:15px;">Create Gift Code</h3>
+                    <div style="display:flex; gap:10px;">
+                        <input type="number" id="bonus-amt" class="form-control" placeholder="Amount (₹)">
+                        <input type="number" id="bonus-limit" class="form-control" placeholder="Max Users">
+                    </div>
+                    <button class="btn-primary" onclick="createBonus()">GENERATE CODE</button>
+                    <div id="bonus-result-box" style="margin-top:20px; background:#111; padding:15px; border-radius:10px; display:none; justify-content:space-between;">
+                        <span id="bonus-display" style="color:#22c55e; font-weight:bold;"></span>
+                    </div>
+                </div>
+                <div class="table-card">
+                    <div class="table-header">Active Codes</div>
+                    <table style="width:100%;"><tbody id="bonus-list"></tbody></table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- TRANSACTION MODAL -->
+    <div class="modal-overlay" id="txnModal">
+        <div class="modal-box">
+            <div class="modal-header"><span id="m-title">Manage Transaction</span><i class="fa-solid fa-xmark" onclick="closeModal('txnModal')" style="cursor:pointer;"></i></div>
+            <div class="modal-body">
+                <div class="info-row"><span>User ID:</span><span id="m-uid">---</span></div>
+                <div class="info-row"><span>Amount:</span><span id="m-amt" style="color:var(--primary)">₹0</span></div>
+                <div class="info-row"><span>Details:</span><span id="m-details" style="font-size:12px;">---</span></div>
+                <p style="font-size:12px; color:#aaa; margin-top:15px;">Action Note (Optional):</p>
+                <input type="text" id="m-note" class="form-input-modal" placeholder="Reason...">
+            </div>
+            <div class="modal-footer">
+                <button class="m-btn m-btn-reject" onclick="processTxn('reject')">REJECT</button>
+                <button class="m-btn m-btn-approve" onclick="processTxn('approve')">APPROVE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- USER EDIT MODAL -->
+    <div class="modal-overlay" id="userModal">
+        <div class="modal-box">
+            <div class="modal-header"><span>Manage User Wallet</span><i class="fa-solid fa-xmark" onclick="closeModal('userModal')" style="cursor:pointer;"></i></div>
+            <div class="modal-body">
+                <div class="info-row"><span>User ID:</span><span id="u-uid">---</span></div>
+                <div class="info-row"><span>Current Deposit:</span><span id="u-bal-d">₹0</span></div>
+                <div class="info-row"><span>Current Winning:</span><span id="u-bal-w">₹0</span></div>
+                
+                <label style="font-size:12px; color:#aaa; margin-top:10px; display:block;">Select Action</label>
+                <select id="u-action" class="form-input-modal" style="background:#000; border-color:var(--primary);">
+                    <option value="add">Add Money (Credit)</option>
+                    <option value="deduct">Deduct Money (Debit)</option>
+                </select>
+
+                <label style="font-size:12px; color:#aaa; margin-top:5px; display:block;">Select Wallet Type</label>
+                <select id="u-wallet-type" class="form-input-modal" style="background:#000;">
+                    <option value="deposit">Deposit Wallet</option>
+                    <option value="winning">Winning Wallet</option>
+                    <option value="bonus">Bonus Wallet</option>
+                </select>
+
+                <label style="font-size:12px; color:#aaa; margin-top:5px; display:block;">Enter Amount</label>
+                <input type="number" id="u-amount" class="form-input-modal" placeholder="Example: 500">
+
+                <button class="m-btn m-btn-ban" id="btn-block" style="width:100%; margin-top:15px;" onclick="toggleBlock()">BLOCK USER</button>
+            </div>
+            <div class="modal-footer">
+                <button class="m-btn m-btn-approve" style="width:100%" onclick="updateUserBalance()">PROCEED TRANSACTION</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. FIREBASE CONFIG ---
+const firebaseConfig = {
+  apiKey: "AIzaSyD-G0UnwltInA9acS_bq30FYbqFXPvMMNY",
+  authDomain: "aura99club-5b43c.firebaseapp.com",
+  databaseURL: "https://aura99club-5b43c-default-rtdb.firebaseio.com",
+  projectId: "aura99club-5b43c",
+  storageBucket: "aura99club-5b43c.firebasestorage.app",
+  messagingSenderId: "4782813611",
+  appId: "1:4782813611:web:ac5e344dd505fa8fd862ee",
+  measurementId: "G-XD5831Q31J"
+};const firebaseConfig = {
+  apiKey: "AIzaSyD-G0UnwltInA9acS_bq30FYbqFXPvMMNY",
+  authDomain: "aura99club-5b43c.firebaseapp.com",
+  databaseURL: "https://aura99club-5b43c-default-rtdb.firebaseio.com",
+  projectId: "aura99club-5b43c",
+  storageBucket: "aura99club-5b43c.firebasestorage.app",
+  messagingSenderId: "4782813611",
+  appId: "1:4782813611:web:ac5e344dd505fa8fd862ee",
+  measurementId: "G-XD5831Q31J"
+};
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // --- AUTH ---
+        function checkAdmin() {
+            const e = document.getElementById('admin-email').value;
+            const p = document.getElementById('admin-pass').value;
+            
+            auth.signInWithEmailAndPassword(e, p)
+            .then((userCredential) => {
+                document.getElementById('admin-login-overlay').style.display = 'none';
+                initAdmin();
+            })
+            .catch((error) => {
+                alert("Login Failed: " + error.message);
+            });
+        }
+        
+        function logoutAdmin() {
+            auth.signOut().then(() => {
+                location.reload();
+            });
+        }
+        
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                document.getElementById('admin-login-overlay').style.display = 'none';
+                initAdmin();
+            }
+        });
+
+        // --- NAVIGATION ---
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('active'); }
+        function toggleWingo() { document.getElementById('wingo-submenu').classList.toggle('show'); }
+        function showSection(id, el) {
+            if(gameTimerInt) clearInterval(gameTimerInt);
+            
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            if(el) {
+                document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+                el.classList.add('active');
+            }
+            if(window.innerWidth < 768) toggleSidebar();
+        }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+        // --- DATA LOADERS ---
+        function initAdmin() {
+            loadDashboard();
+            loadDeposits();
+            loadWithdrawals();
+            loadUsers();
+            loadSliders();
+            loadBonusCodes();
+            loadSettings();
+            loadReferralSettings();
+            loadUpdateSettings(); 
+            loadSupportSettings();
+            loadAppName(); // NEW
+        }
+
+        function loadDashboard() {
+            db.collection('users').onSnapshot(snap => document.getElementById('d-users').innerText = snap.size);
+            db.collection('admin_deposits').where('status','==','success').onSnapshot(snap => {
+                let total = 0; snap.forEach(d => total += d.data().amount);
+                document.getElementById('d-dep').innerText = "₹" + total;
+            });
+            db.collection('admin_withdrawals').where('status','==','success').onSnapshot(snap => {
+                let total = 0; snap.forEach(d => total += d.data().amount);
+                document.getElementById('d-with').innerText = "₹" + total;
+            });
+        }
+
+        // ================= GAME CONTROLLER LOGIC =================
+        let currentGameDuration = 30;
+        let gameTimerInt = null;
+        let selectedManualNum = null;
+        let betsListener = null; 
+        let forcedResults = {}; 
+        
+        let currentHistoryPage = 1;
+        let currentBetsPage = 1;
+        let allLiveBets = [];
+        
+        function openGameControl(duration) {
+            currentGameDuration = duration;
+            showSection('game-controller-view'); 
+            
+            currentHistoryPage = 1;
+            currentBetsPage = 1;
+            
+            let name = duration < 60 ? duration+"s" : (duration/60)+" Min";
+            document.getElementById('gc-game-name').innerText = name;
+
+            setGameMode('auto'); 
+            startAdminTimer();
+            
+            db.collection('game_results').doc('wingo_'+duration).onSnapshot(doc => {
+                if(doc.exists) {
+                    forcedResults[duration] = {
+                        number: doc.data().next_number,
+                        color: doc.data().next_color,
+                        size: doc.data().next_size,
+                        timestamp: doc.data().timestamp
+                    };
+                } else {
+                    forcedResults[duration] = null;
+                }
+                renderHistoryTableMath(); 
+            });
+
+            setInterval(renderHistoryTableMath, 2000);
+            loadLiveBets();
+        }
+
+        function setGameMode(mode) {
+            const hl = document.getElementById('mode-hl');
+            const autoBtn = document.getElementById('btn-auto');
+            const manBtn = document.getElementById('btn-manual');
+            const manArea = document.getElementById('manual-area');
+
+            if(mode === 'auto') {
+                hl.style.left = '5px';
+                autoBtn.classList.add('active');
+                manBtn.classList.remove('active');
+                manArea.classList.remove('active');
+                
+                db.collection('game_results').doc('wingo_'+currentGameDuration).delete()
+                  .catch(e => console.log("Already auto"));
+            } else {
+                hl.style.left = '50%';
+                autoBtn.classList.remove('active');
+                manBtn.classList.add('active');
+                manArea.classList.add('active');
+            }
+        }
+
+        function startAdminTimer() {
+            if(gameTimerInt) clearInterval(gameTimerInt);
+            
+            function update() {
+                const now = new Date();
+                const totalSec = Math.floor(now.getTime() / 1000);
+                const seconds = now.getSeconds() + (now.getMinutes() * 60) + (now.getHours() * 3600);
+                
+                const dtStr = now.toISOString().slice(0,10).replace(/-/g,'');
+                const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()/1000;
+                const idx = Math.floor((totalSec - midnight) / currentGameDuration);
+                let gameId = currentGameDuration === 30 ? '1' : currentGameDuration === 60 ? '2' : currentGameDuration === 180 ? '3' : '5';
+                const currentPeriod = dtStr + gameId + String(idx).padStart(4, '0');
+
+                const rem = currentGameDuration - (seconds % currentGameDuration);
+                let mm = Math.floor(rem / 60);
+                let ss = rem % 60;
+                let displayTime = (mm < 10 ? '0'+mm : mm) + ":" + (ss < 10 ? '0'+ss : ss);
+
+                document.getElementById('live-period').innerText = currentPeriod;
+                document.getElementById('live-timer').innerText = displayTime;
+            }
+            update();
+            gameTimerInt = setInterval(update, 1000);
+        }
+
+        function selectNum(n) {
+            selectedManualNum = n;
+            document.querySelectorAll('.num-btn').forEach(b => b.classList.remove('selected'));
+            document.querySelectorAll('.num-btn')[n].classList.add('selected');
+            document.getElementById('sel-disp').innerText = n;
+        }
+
+        function submitManualResult() {
+            if(selectedManualNum === null) { alert("Please select a number first!"); return; }
+            
+            let color = 'green';
+            if([2,4,6,8].includes(selectedManualNum)) color = 'red';
+            if(selectedManualNum === 0) color = 'red-v';
+            if(selectedManualNum === 5) color = 'green-v';
+            let size = selectedManualNum >= 5 ? 'Big' : 'Small';
+
+            db.collection('game_results').doc('wingo_'+currentGameDuration).set({
+                next_number: selectedManualNum,
+                next_color: color,
+                next_size: size,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => alert("SUCCESS! Next result set to " + selectedManualNum));
+        }
+
+        function switchGcTab(tab) {
+            document.querySelectorAll('.gc-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('tab-history').style.display = tab === 'history' ? 'block' : 'none';
+            document.getElementById('tab-bets').style.display = tab === 'bets' ? 'block' : 'none';
+        }
+
+        function getPeriodId(dur) {
+            const now = new Date();
+            const totalSec = Math.floor(now.getTime() / 1000);
+            const dtStr = now.toISOString().slice(0,10).replace(/-/g,'');
+            const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()/1000;
+            const idx = Math.floor((totalSec - midnight) / dur);
+            let gameId = dur === 30 ? '1' : dur === 60 ? '2' : dur === 180 ? '3' : '5';
+            return dtStr + gameId + String(idx).padStart(4, '0');
+        }
+
+        function generateResult(periodId, duration) {
+            let combinedKey = periodId + "_" + duration;
+            let seed = 0;
+            for (let i = 0; i < combinedKey.length; i++) {
+                seed = (seed ^ combinedKey.charCodeAt(i)) * 0x5bd1e995;
+                seed = seed ^ (seed >>> 15);
+            }
+            let t = (seed += 0x6D2B79F5);
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            let rand = ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            
+            let rn = Math.floor(rand * 10);
+            let color = 'green';
+            if([2,4,6,8].includes(rn)) color = 'red';
+            if(rn===0) color='red-v';
+            if(rn===5) color='green-v';
+            
+            let size = rn >= 5 ? 'Big' : 'Small';
+            return { period: periodId, number: rn, size: size, color: color };
+        }
+
+        function changeHistoryPage(dir) {
+            if(dir === 1) currentHistoryPage++;
+            else if(dir === -1 && currentHistoryPage > 1) currentHistoryPage--;
+            renderHistoryTableMath();
+        }
+
+        function renderHistoryTableMath() {
+            let start = (currentHistoryPage - 1) * 10; 
+            
+            document.getElementById('hist-page-count').innerText = "Page " + currentHistoryPage;
+
+            let currentP = getPeriodId(currentGameDuration);
+            let rows = [];
+            
+            for(let i=1 + start; i<=10 + start; i++) {
+                let pStr = currentP.toString();
+                let prefix = pStr.slice(0, 9); 
+                let suffix = parseInt(pStr.slice(9));
+                
+                let prevSuffix = suffix - i;
+                if(prevSuffix < 0) continue; 
+                
+                let prevP = prefix + String(prevSuffix).padStart(4, '0');
+                
+                let res = generateResult(prevP, currentGameDuration);
+                rows.push(res);
+            }
+
+            let html = '';
+            rows.forEach(d => {
+                let colorBadge = '';
+                if(d.color === 'green') colorBadge = '<i class="fa-solid fa-circle" style="color:#22c55e;"></i>';
+                else if(d.color === 'red') colorBadge = '<i class="fa-solid fa-circle" style="color:#ef4444;"></i>';
+                else if(d.color === 'red-v') colorBadge = '<i class="fa-solid fa-circle" style="color:#ef4444;"></i><i class="fa-solid fa-circle" style="color:#9c27b0;"></i>';
+                else if(d.color === 'green-v') colorBadge = '<i class="fa-solid fa-circle" style="color:#22c55e;"></i><i class="fa-solid fa-circle" style="color:#9c27b0;"></i>';
+                
+                let numStyle = "font-weight:bold; font-size:16px; color:#fff;";
+                if(d.number === 0) numStyle = "background: linear-gradient(135deg, #ea5455 55%, #9c27b0 50%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight:900;";
+                if(d.number === 5) numStyle = "background: linear-gradient(135deg, #28c76f 55%, #9c27b0 50%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight:900;";
+                if(d.color === 'green' && d.number !== 5) numStyle = "color:#22c55e; font-weight:bold; font-size:16px;";
+                if(d.color === 'red' && d.number !== 0) numStyle = "color:#ef4444; font-weight:bold; font-size:16px;";
+
+                html += `<tr>
+                    <td>${d.period}</td>
+                    <td style="${numStyle}">${d.number}</td>
+                    <td>${colorBadge}</td>
+                    <td><span class="badge" style="background:${d.size==='Big'?'#ffc107':'#3b82f6'}; color:#000;">${d.size}</span></td>
+                </tr>`;
+            });
+            document.getElementById('gc-history-body').innerHTML = html;
+        }
+
+        function loadLiveBets() {
+            if(betsListener) betsListener();
+
+            const tbody = document.getElementById('gc-bets-body');
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">Loading live bets...</td></tr>';
+
+            betsListener = db.collection('bets')
+                .where('gameTimer', '==', currentGameDuration)
+                .orderBy('timestamp', 'desc')
+                .limit(200)
+                .onSnapshot(snap => {
+                    allLiveBets = [];
+                    const now = Date.now();
+                    const oneDay = 24 * 60 * 60 * 1000;
+
+                    if (snap.empty) {
+                        allLiveBets = [];
+                    } else {
+                        snap.forEach(doc => {
+                            let d = doc.data();
+                            let betTime = d.timestamp ? d.timestamp.toMillis() : 0;
+                            if(now - betTime < oneDay) {
+                                allLiveBets.push(d);
+                            }
+                        });
+                    }
+                    renderBetsTable();
+                });
+        }
+
+        function changeBetsPage(dir) {
+            let maxPages = Math.ceil(allLiveBets.length / 10);
+            if(maxPages < 1) maxPages = 1;
+
+            if(dir === 1 && currentBetsPage < maxPages) currentBetsPage++;
+            else if(dir === -1 && currentBetsPage > 1) currentBetsPage--;
+            
+            renderBetsTable();
+        }
+
+        function renderBetsTable() {
+            const tbody = document.getElementById('gc-bets-body');
+            const maxPages = Math.ceil(allLiveBets.length / 10) || 1;
+            document.getElementById('bets-page-count').innerText = `Page ${currentBetsPage}/${maxPages}`;
+
+            if(allLiveBets.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#666;">No bets in last 24 hours.</td></tr>';
+                return;
+            }
+
+            const start = (currentBetsPage - 1) * 10;
+            const end = start + 10;
+            const displayData = allLiveBets.slice(start, end);
+
+            let html = '';
+            displayData.forEach(d => {
+                let badgeClass = 'bg-pending';
+                let statusText = 'PENDING';
+                let amountDisplay = `₹${d.amount}`;
+                
+                const status = (d.status || 'pending').toLowerCase();
+
+                if(status === 'win') {
+                    badgeClass = 'bg-success';
+                    statusText = 'WIN';
+                    let payoutAmt = d.payout ? d.payout : (d.amount * 1.96); 
+                    amountDisplay = `<span style="color:#aaa; font-size:11px;">Bet: ₹${d.amount}</span><br><span style="color:#22c55e; font-weight:bold;">Win: +₹${payoutAmt.toFixed(2)}</span>`;
+                }
+                else if(status === 'loss') {
+                    badgeClass = 'bg-reject';
+                    statusText = 'LOSS';
+                    amountDisplay = `<span style="color:#aaa; font-size:11px;">Bet: ₹${d.amount}</span><br><span style="color:#ef4444; font-weight:bold;">Loss: -₹${d.amount}</span>`;
+                }
+                else {
+                    amountDisplay = `<span style="color:#fff; font-weight:bold;">Bet: ₹${d.amount}</span>`;
+                }
+                
+                html += `<tr>
+                    <td style="color:#aaa;">${d.period}</td>
+                    <td style="font-size:11px;">${d.uid}</td>
+                    <td style="color:var(--primary); font-weight:bold;">${d.select}</td>
+                    <td>${amountDisplay}</td>
+                    <td><span class="badge ${badgeClass}" style="font-size:12px; padding:5px 10px;">${statusText}</span></td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        }
+
+        // ================= DEPOSITS =================
+        function loadDeposits() {
+            db.collection('admin_deposits').where('status', '==', 'pending').onSnapshot(snap => {
+                let html = '';
+                if (snap.empty) {
+                    html = '<tr><td colspan="5" style="text-align:center; padding:20px;">No pending deposit requests.</td></tr>';
+                } else {
+                    let docs = [];
+                    snap.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
+                    docs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                    docs.forEach(d => {
+                        html += `<tr>
+                            <td>${d.uid}</td>
+                            <td style="color:#fff;">${d.utr}</td>
+                            <td style="color:#22c55e; font-weight:bold;">₹${d.amount}</td>
+                            <td><span class="badge bg-pending">${d.status}</span></td>
+                            <td><button class="btn-action-green" onclick="openTxn('${d.id}','${d.uid}',${d.amount},'${d.utr}','dep')">Manage</button></td>
+                        </tr>`;
+                    });
+                }
+                document.getElementById('dep-body').innerHTML = html;
+            });
+        }
+
+        // ================= WITHDRAWALS =================
+        function loadWithdrawals() {
+            db.collection('admin_withdrawals').where('status', '==', 'pending').onSnapshot(snap => {
+                let html = '';
+                if (snap.empty) {
+                    html = '<tr><td colspan="6" style="text-align:center; padding:20px;">No pending withdrawal requests.</td></tr>';
+                } else {
+                    let docs = [];
+                    snap.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
+                    docs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                    docs.forEach(d => {
+                        html += `<tr>
+                            <td>${d.uid}</td>
+                            <td>${d.method}</td>
+                            <td style="font-size:11px; color:#aaa;">${d.details}</td>
+                            <td style="color:#ef4444; font-weight:bold;">₹${d.amount}</td>
+                            <td><span class="badge bg-pending">${d.status}</span></td>
+                            <td><button class="btn-action-red" onclick="openTxn('${d.id}','${d.uid}',${d.amount},'${d.method}','with')">Manage</button></td>
+                        </tr>`;
+                    });
+                }
+                document.getElementById('with-body').innerHTML = html;
+            });
+        }
+
+        // ================= TXN PROCESSING =================
+        let curTxn = {};
+        function openTxn(id, uid, amt, det, type) {
+            curTxn = { id, uid, amt, type };
+            document.getElementById('m-title').innerText = type==='dep' ? "Deposit Request" : "Withdrawal Request";
+            document.getElementById('m-uid').innerText = uid;
+            document.getElementById('m-amt').innerText = "₹" + amt;
+            document.getElementById('m-details').innerText = det;
+            document.getElementById('txnModal').classList.add('active');
+        }
+
+        async function processTxn(action) {
+            const status = action === 'approve' ? 'success' : 'rejected';
+            const note = document.getElementById('m-note').value;
+            const userRef = db.collection('users').doc(curTxn.uid);
+            const batch = db.batch();
+
+            try {
+                if (curTxn.type === 'dep') {
+                    batch.update(db.collection('admin_deposits').doc(curTxn.id), { status: status, note: note });
+                    if (action === 'approve') {
+                        batch.update(userRef, { "wallet.deposit": firebase.firestore.FieldValue.increment(curTxn.amt) });
+                    } 
+                } else {
+                    batch.update(db.collection('admin_withdrawals').doc(curTxn.id), { status: status, note: note });
+                    if (action === 'reject') {
+                        batch.update(userRef, { "wallet.winning": firebase.firestore.FieldValue.increment(curTxn.amt) });
+                    }
+                }
+                await batch.commit();
+                alert("Transaction Processed Successfully");
+                closeModal('txnModal');
+            } catch (e) { console.error(e); alert("Error: " + e.message); }
+        }
+
+        // ================= USERS =================
+        function loadUsers() {
+            db.collection('users').onSnapshot(snap => {
+                let html = '';
+                snap.forEach(doc => {
+                    let d = doc.data();
+                    let w = d.wallet || {deposit:0, winning:0, bonus:0};
+                    let st = d.isBanned ? '<span class="badge bg-banned">BLOCKED</span>' : '<span class="badge bg-success">ACTIVE</span>';
+                    html += `<tr>
+                        <td>${doc.id}</td>
+                        <td>${d.contact}</td>
+                        <td>${d.password}</td>
+                        <td style="font-size:11px;">D:₹${w.deposit} | W:₹${w.winning} | B:₹${w.bonus}</td>
+                        <td>${st}</td>
+                        <td><button class="btn-edit-user" onclick="openUserEdit('${doc.id}', ${w.deposit}, ${w.winning}, ${d.isBanned})">Manage</button></td>
+                    </tr>`;
+                });
+                document.getElementById('users-body').innerHTML = html;
+            });
+        }
+
+        let editUser = {};
+        function openUserEdit(uid, d, w, banned) {
+            editUser = { uid, banned };
+            document.getElementById('u-uid').innerText = uid;
+            document.getElementById('u-bal-d').innerText = "₹" + d;
+            document.getElementById('u-bal-w').innerText = "₹" + w;
+            document.getElementById('btn-block').innerText = banned ? "UNBLOCK USER" : "BLOCK USER";
+            document.getElementById('btn-block').style.background = banned ? "#22c55e" : "#ef4444";
+            document.getElementById('u-amount').value = '';
+            document.getElementById('userModal').classList.add('active');
+        }
+
+        async function updateUserBalance() {
+            const action = document.getElementById('u-action').value;
+            const type = document.getElementById('u-wallet-type').value;
+            let amt = Number(document.getElementById('u-amount').value);
+            if(!amt || amt <= 0) { alert("Please enter a valid amount"); return; }
+            let finalAmount = (action === 'deduct') ? -amt : amt;
+            
+            db.collection('users').doc(editUser.uid).update({
+                ["wallet." + type]: firebase.firestore.FieldValue.increment(finalAmount)
+            }).then(() => { alert("Updated!"); closeModal('userModal'); });
+        }
+
+        function toggleBlock() {
+            if(confirm("Are you sure?")) {
+                db.collection('users').doc(editUser.uid).update({ isBanned: !editUser.banned })
+                .then(() => { alert("Status Updated"); closeModal('userModal'); });
+            }
+        }
+
+        // ================= NOTIFICATIONS LOGIC =================
+        function toggleNotifUserField() {
+            const target = document.getElementById('notif-target').value;
+            document.getElementById('notif-user-box').style.display = target === 'personal' ? 'block' : 'none';
+        }
+
+        function sendNotification() {
+            const target = document.getElementById('notif-target').value;
+            const uid = document.getElementById('notif-uid').value;
+            const title = document.getElementById('notif-title').value;
+            const msg = document.getElementById('notif-msg').value;
+
+            if(!title || !msg) { alert("Please enter Title and Message"); return; }
+            if(target === 'personal' && !uid) { alert("Please enter User UID"); return; }
+
+            const notifData = {
+                type: target,
+                targetUid: target === 'personal' ? uid : 'all',
+                title: title,
+                message: msg,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            db.collection('notifications').add(notifData)
+            .then(() => {
+                alert("Notification Sent Successfully!");
+                document.getElementById('notif-title').value = "";
+                document.getElementById('notif-msg').value = "";
+                document.getElementById('notif-uid').value = "";
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Error sending notification");
+            });
+        }
+
+        // ================= SETTINGS & OTHER =================
+        function loadSettings() {
+             db.collection('settings').doc('payment').get().then(doc => {
+                 if(doc.exists) {
+                     document.getElementById('upi-id').value = doc.data().upi_id || '';
+                     document.getElementById('qr-code').value = doc.data().qr_url || '';
+                 }
+             });
+        }
+        function updateSettings() {
+            const upi = document.getElementById('upi-id').value;
+            const qr = document.getElementById('qr-code').value;
+            db.collection('settings').doc('payment').set({ upi_id: upi, qr_url: qr }, { merge: true })
+            .then(() => alert("Settings Saved"));
+        }
+
+        function loadReferralSettings() {
+            db.collection('settings').doc('config').get().then(doc => {
+                if(doc.exists) {
+                    const data = doc.data();
+                    document.getElementById('conf-signup-bonus').value = data.signup_bonus || '';
+                    document.getElementById('conf-referral-bonus').value = data.referral_bonus || '';
+                    document.getElementById('conf-referral-link').value = data.referral_base_link || '';
+                }
+            });
+        }
+        function saveReferralSettings() {
+            const signup = Number(document.getElementById('conf-signup-bonus').value);
+            const referral = Number(document.getElementById('conf-referral-bonus').value);
+            const link = document.getElementById('conf-referral-link').value;
+            db.collection('settings').doc('config').set({ signup_bonus: signup, referral_bonus: referral, referral_base_link: link }, { merge: true })
+            .then(() => alert("Saved!"));
+        }
+
+        function loadUpdateSettings() {
+            db.collection('settings').doc('app_update').get().then(doc => {
+                if(doc.exists) {
+                    const data = doc.data();
+                    document.getElementById('upd-msg').value = data.message || '';
+                    document.getElementById('upd-link').value = data.link || '';
+                    document.getElementById('upd-status').value = data.force_update ? "true" : "false";
+                }
+            });
+        }
+        function pushUpdate() {
+            const msg = document.getElementById('upd-msg').value;
+            const link = document.getElementById('upd-link').value;
+            const force = document.getElementById('upd-status').value === "true";
+            db.collection('settings').doc('app_update').set({ message: msg, link: link, force_update: force }, { merge: true })
+            .then(() => alert("Update Pushed!"));
+        }
+
+        // --- NEW: APP NAME CONFIGURATION LOGIC ---
+        function loadAppName() {
+            db.collection('settings').doc('app_info').get().then(doc => {
+                if(doc.exists && doc.data().app_name) {
+                    document.getElementById('config-app-name').value = doc.data().app_name;
+                }
+            });
+        }
+
+        function updateAppName() {
+            const name = document.getElementById('config-app-name').value;
+            if(!name) { alert("Please enter a name"); return; }
+            db.collection('settings').doc('app_info').set({ app_name: name }, { merge: true })
+            .then(() => alert("App Name Updated! Changes will reflect in user app."));
+        }
+        // ---------------------------------------
+
+        function addSlider() {
+            const img = document.getElementById('slider-img').value;
+            const link = document.getElementById('slider-link').value;
+            if(img) {
+                db.collection('sliders').add({ image: img, link: link || '' }).then(() => {
+                    alert("Slider Added");
+                    document.getElementById('slider-img').value = '';
+                });
+            }
+        }
+        function loadSliders() {
+            db.collection('sliders').onSnapshot(snap => {
+                let html = '';
+                snap.forEach(doc => {
+                    html += `<div style="position:relative; background:#111; padding:5px; border-radius:10px;">
+                        <img src="${doc.data().image}" style="width:100%; border-radius:5px;">
+                        <button onclick="db.collection('sliders').doc('${doc.id}').delete()" style="position:absolute; top:5px; right:5px; background:red; color:white; border:none; cursor:pointer;">X</button>
+                    </div>`;
+                });
+                document.getElementById('slider-list').innerHTML = html;
+            });
+        }
+
+        // --- NEW SUPPORT SETTINGS LOGIC ---
+        function loadSupportSettings() {
+            db.collection('settings').doc('support').get().then(doc => {
+                if(doc.exists && doc.data().link) {
+                    document.getElementById('support-link').value = doc.data().link;
+                }
+            });
+        }
+
+        function saveSupportSettings() {
+            const link = document.getElementById('support-link').value;
+            if(!link) { alert("Please enter a link"); return; }
+            db.collection('settings').doc('support').set({ link: link }, { merge: true })
+            .then(() => alert("Support Link Saved!"));
+        }
+
+
+        function createBonus() {
+            const amt = Number(document.getElementById('bonus-amt').value);
+            const lim = Number(document.getElementById('bonus-limit').value);
+            if(!amt || !lim) { alert("Enter Amount and Limit"); return; }
+            
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            let code = "";
+            for (let i = 0; i < 15; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+
+            db.collection('bonus_codes').add({ code: code, amount: amt, limit: lim, used: 0, claimed_by: [] })
+            .then(() => {
+                document.getElementById('bonus-display').innerText = code;
+                document.getElementById('bonus-result-box').style.display = 'flex';
+            });
+        }
+        function loadBonusCodes() {
+            db.collection('bonus_codes').onSnapshot(snap => {
+                let html = '';
+                snap.forEach(doc => {
+                    let d = doc.data();
+                    html += `<tr><td>${d.code}</td><td>₹${d.amount}</td><td>${d.used}/${d.limit}</td><td><button onclick="db.collection('bonus_codes').doc('${doc.id}').delete()" style="color:red; background:none; border:none; cursor:pointer;">X</button></td></tr>`;
+                });
+                document.getElementById('bonus-list').innerHTML = html;
+            });
+        }
+    </script>
+</body>
+</html>
